@@ -24,5 +24,13 @@
     "abort": {
       "already_configured": "This Tronbyt server is already configured."
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Tronbyt Options",
+        "description": "Configure options for your Tronbyt integration."
+      }
+    }
   }
 }

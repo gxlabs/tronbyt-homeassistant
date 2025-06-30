@@ -17,6 +17,8 @@ from homeassistant.helpers.update_coordinator import (
     UpdateFailed,
 )
 
+from .const import DOMAIN
+
 _LOGGER = logging.getLogger(__name__)
 
 DOMAIN = "tronbyt"
@@ -76,6 +78,10 @@ class TronbytAPI:
         except Exception as e:
             _LOGGER.error(f"Error getting devices: {e}")
             return []
+    
+    async def _get_devices_fallback(self) -> List[Dict[str, Any]]:
+        """Removed fallback method."""
+        return []
     
     async def _get_devices_fallback(self) -> List[Dict[str, Any]]:
         """Fallback method to discover devices."""

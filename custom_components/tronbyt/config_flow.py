@@ -43,9 +43,9 @@ class TronbytConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             try:
                 # Validate and normalize the base URL
-                base_url = self._normalize_url(user_input["base_url"])
+                base_url = self._normalize_url(user_input[CONF_BASE_URL])
                 username = user_input[CONF_USERNAME]
-                bearer_token = user_input["bearer_token"]
+                bearer_token = user_input[CONF_BEARER_TOKEN]
 
                 # Test connection and get devices
                 devices = await self._test_connection(base_url, username, bearer_token)
@@ -79,7 +79,7 @@ class TronbytConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=STEP_USER_DATA_SCHEMA,
             errors=errors,
             description_placeholders={
-                "example_url": "https://tronbyt.gxlabs.co or http://192.168.1.100:8000"
+                "example_url": "https://tronbyt.example.com or http://192.168.1.100:8000"
             }
         )
 
@@ -92,9 +92,9 @@ class TronbytConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return self.async_create_entry(
                 title=f"Tronbyt Server ({self.base_url})",
                 data={
-                    "base_url": self.base_url,
+                    CONF_BASE_URL: self.base_url,
                     CONF_USERNAME: self.username,
-                    "bearer_token": self.bearer_token,
+                    CONF_BEARER_TOKEN: self.bearer_token,
                 },
             )
 
