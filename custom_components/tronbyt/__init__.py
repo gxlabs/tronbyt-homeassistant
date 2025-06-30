@@ -21,7 +21,8 @@ from .const import CONF_BASE_URL, CONF_BEARER_TOKEN, CONF_USERNAME, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = [Platform.SWITCH, Platform.SENSOR]
+
+PLATFORMS = [Platform.LIGHT]
 SCAN_INTERVAL = timedelta(seconds=30)
 
 
@@ -324,8 +325,8 @@ async def async_setup_services(hass: HomeAssistant, api: TronbytAPI):
         brightness = call.data.get("brightness", 50)
         
         # Extract device ID from entity ID
-        if entity_id and entity_id.startswith("switch.tronbyt_"):
-            device_id = entity_id.replace("switch.tronbyt_", "").replace("_switch", "")
+        if entity_id and entity_id.startswith("light.tronbyt_"):
+            device_id = entity_id.replace("light.tronbyt_", "").replace("_light", "")
             await api.set_device_brightness(device_id, brightness)
     
     async def handle_set_app(call):
@@ -334,8 +335,8 @@ async def async_setup_services(hass: HomeAssistant, api: TronbytAPI):
         app_id = call.data.get("app_id")
         
         # Extract device ID from entity ID
-        if entity_id and entity_id.startswith("switch.tronbyt_") and app_id:
-            device_id = entity_id.replace("switch.tronbyt_", "").replace("_switch", "")
+        if entity_id and entity_id.startswith("light.tronbyt_") and app_id:
+            device_id = entity_id.replace("light.tronbyt_", "").replace("_light", "")
             await api.set_device_app(device_id, app_id)
     
     # Only register services if they don't exist yet
