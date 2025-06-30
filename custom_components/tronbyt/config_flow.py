@@ -79,7 +79,7 @@ class TronbytConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=STEP_USER_DATA_SCHEMA,
             errors=errors,
             description_placeholders={
-                "example_url": "https://tronbyt.example.com or http://192.168.1.100:8000"
+                "example_url": "https://tronbyt.gxlabs.co or http://192.168.1.100:8000"
             }
         )
 

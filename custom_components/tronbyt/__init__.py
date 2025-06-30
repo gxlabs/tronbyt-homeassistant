@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional
 import aiohttp
 import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import Platform
+from homeassistant.const import CONF_USERNAME, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import (
@@ -17,7 +17,7 @@ from homeassistant.helpers.update_coordinator import (
     UpdateFailed,
 )
 
-from .const import DOMAIN
+from .const import CONF_BASE_URL, CONF_BEARER_TOKEN, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -257,9 +257,9 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Tronbyt from a config entry."""
-    base_url = entry.data["base_url"]
-    username = entry.data["username"]
-    bearer_token = entry.data["bearer_token"]
+    base_url = entry.data[CONF_BASE_URL]
+    username = entry.data[CONF_USERNAME]
+    bearer_token = entry.data[CONF_BEARER_TOKEN]
     
     session = async_get_clientsession(hass)
     api = TronbytAPI(base_url, username, bearer_token, session)
