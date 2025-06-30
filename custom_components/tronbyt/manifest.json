@@ -1,0 +1,13 @@
+{
+  "domain": "tronbyt",
+  "name": "Tronbyt",
+  "codeowners": ["@gxlabs"],
+  "config_flow": true,
+  "documentation": "https://github.com/gxlabs/tronbyt-homeassistant",
+  "homekit": {},
+  "iot_class": "local_polling",
+  "requirements": [],
+  "ssdp": [],
+  "version": "1.0.0",
+  "zeroconf": []
+}

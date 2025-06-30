@@ -1,0 +1,28 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Tronbyt Server Configuration",
+        "description": "Enter your Tronbyt server details. You can find your Bearer token in the Tronbyt web interface under API settings.\n\nExample base URL: {example_url}",
+        "data": {
+          "base_url": "Base URL",
+          "username": "Username", 
+          "bearer_token": "Bearer Token"
+        }
+      },
+      "devices": {
+        "title": "Devices Found",
+        "description": "Found {device_count} device(s) on {base_url}:\n\n{device_list}\n\nClick Submit to add all devices to Home Assistant."
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to the Tronbyt server. Please check the base URL and network connectivity.",
+      "invalid_auth": "Invalid authentication. Please check your username and bearer token.",
+      "no_devices": "No devices found on the Tronbyt server.",
+      "unknown": "Unexpected error occurred."
+    },
+    "abort": {
+      "already_configured": "This Tronbyt server is already configured."
+    }
+  }
+}
