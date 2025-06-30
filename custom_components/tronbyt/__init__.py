@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional
 import aiohttp
 import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_USERNAME, Platform
+from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import (
@@ -17,11 +17,10 @@ from homeassistant.helpers.update_coordinator import (
     UpdateFailed,
 )
 
-from .const import CONF_BASE_URL, CONF_BEARER_TOKEN, DOMAIN
+from .const import CONF_BASE_URL, CONF_BEARER_TOKEN, CONF_USERNAME, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
-DOMAIN = "tronbyt"
 PLATFORMS = [Platform.SWITCH, Platform.SENSOR]
 SCAN_INTERVAL = timedelta(seconds=30)
 

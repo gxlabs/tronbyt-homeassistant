@@ -6,19 +6,18 @@ from urllib.parse import urlparse
 import aiohttp
 import voluptuous as vol
 from homeassistant import config_entries
-from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_USERNAME
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .const import DOMAIN
+from .const import CONF_BASE_URL, CONF_BEARER_TOKEN, CONF_USERNAME, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
 STEP_USER_DATA_SCHEMA = vol.Schema({
-    vol.Required(CONF_HOST): str,
+    vol.Required(CONF_BASE_URL): str,
     vol.Optional(CONF_USERNAME, default="admin"): str,
-    vol.Optional(CONF_PASSWORD, default="password"): str,
+    vol.Optional(CONF_BEARER_TOKEN, default="bearer_token"): str,
 })
 
 
@@ -132,21 +131,36 @@ class TronbytConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def _test_connection(self, base_url: str, username: str, bearer_token: str) -> list:
         """Test if we can authenticate with the server."""
-        from . import TronbytAPI  # Import here to avoid circular imports
-        
         session = async_get_clientsession(self.hass)
-        api = TronbytAPI(base_url, username, bearer_token, session)
-        
-        # Test basic connection and get devices
-        if not await api.test_connection():
-            raise CannotConnect
         
         try:
-            devices = await api.get_devices()
-            return devices
-        except aiohttp.ClientResponseError as err:
-            if err.status == 401:
-                raise InvalidAuth
+            headers = {"Authorization": f"Bearer {bearer_token}"} if bearer_token else {}
+            
+            async with session.get(
+                f"{base_url}/v0/users/{username}/devices",
+                headers=headers,
+                timeout=aiohttp.ClientTimeout(total=10)
+            ) as response:
+                if response.status == 401:
+                    raise InvalidAuth
+                elif response.status != 200:
+                    raise CannotConnect
+                
+                data = await response.json()
+                devices = data.get("devices", [])
+                
+                # Transform devices to our format
+                transformed_devices = []
+                for device in devices:
+                    transformed_devices.append({
+                        "id": device["id"],
+                        "name": device["displayName"],
+                        "brightness": device.get("brightness", 50),
+                    })
+                
+                return transformed_devices
+                
+        except aiohttp.ClientError:
             raise CannotConnect
         except Exception as err:
             _LOGGER.error("Error testing connection: %s", err)
