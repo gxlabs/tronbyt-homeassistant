@@ -1,0 +1,32 @@
+set_brightness:
+  name: Set Brightness
+  description: Set the brightness level of a Tronbyt display
+  target:
+    entity:
+      domain: light
+      integration: tronbyt
+  fields:
+    brightness:
+      name: Brightness
+      description: Brightness level (0-100)
+      required: true
+      selector:
+        number:
+          min: 0
+          max: 100
+          unit_of_measurement: "%"
+
+set_app:
+  name: Set App
+  description: Change the active app on a Tronbyt display
+  target:
+    entity:
+      domain: light
+      integration: tronbyt
+  fields:
+    app_id:
+      name: App ID
+      description: The ID of the app to activate
+      required: true
+      selector:
+        text:
