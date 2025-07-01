@@ -79,11 +79,11 @@ class TronbytLight(CoordinatorEntity, LightEntity):
     @property
     def brightness(self) -> Optional[int]:
         """Return the brightness of this light between 0..255."""
-        # Convert from 0-100 (API) to 0-255 (Home Assistant)
+        # API already returns 0-255, so use directly
         api_brightness = self.coordinator.data.get("brightness", 0)
         if api_brightness is None:
             return None
-        return int(api_brightness * 255 / 100)
+        return int(api_brightness)
 
     @property
     def available(self) -> bool:
@@ -100,7 +100,7 @@ class TronbytLight(CoordinatorEntity, LightEntity):
         
         # Add optional attributes if available
         if brightness := self.coordinator.data.get("brightness"):
-            attributes["api_brightness"] = brightness
+            attributes["api_brightness"] = brightness  # 0-255 scale
         
         if current_app := self.coordinator.data.get("current_app"):
             attributes["current_app"] = current_app
@@ -115,25 +115,31 @@ class TronbytLight(CoordinatorEntity, LightEntity):
         brightness = kwargs.get(ATTR_BRIGHTNESS)
         
         if brightness is not None:
-            # Convert from 0-255 (Home Assistant) to 0-100 (API)
-            api_brightness = int(brightness * 100 / 255)
+            # Home Assistant brightness is 0-255, API expects 0-255, so use directly
+            api_brightness = int(brightness)
             # Ensure minimum brightness when turning on
             api_brightness = max(api_brightness, 1)
         else:
             # Default brightness when no brightness specified
             current_brightness = self.coordinator.data.get("brightness", 0)
-            api_brightness = 50 if current_brightness == 0 else current_brightness
+            api_brightness = 128 if current_brightness == 0 else current_brightness  # 50% = 128
         
+        _LOGGER.info(f"Turning on {self.device_id} with brightness {api_brightness} (HA brightness: {brightness})")
+                
         success = await self.api.set_device_brightness(self.device_id, api_brightness)
         if success:
+            _LOGGER.info("Successfully set brightness, refreshing coordinator")
             await self.coordinator.async_request_refresh()
         else:
             _LOGGER.error("Failed to turn on device %s", self.device_id)
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the light off."""
+        _LOGGER.info(f"Turning off {self.device_id}")
+                
         success = await self.api.set_device_brightness(self.device_id, 0)
         if success:
+            _LOGGER.info("Successfully turned off, refreshing coordinator")
             await self.coordinator.async_request_refresh()
         else:
             _LOGGER.error("Failed to turn off device %s", self.device_id)

@@ -17,10 +17,9 @@ from homeassistant.helpers.update_coordinator import (
     UpdateFailed,
 )
 
-from .const import CONF_BASE_URL, CONF_BEARER_TOKEN, CONF_USERNAME, DOMAIN
+from .const import CONF_API_KEY, CONF_BASE_URL, CONF_USERNAME, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
-
 
 PLATFORMS = [Platform.LIGHT]
 SCAN_INTERVAL = timedelta(seconds=30)
@@ -28,19 +27,19 @@ SCAN_INTERVAL = timedelta(seconds=30)
 
 class TronbytAPI:
     """API client for Tronbyt server."""
-    
-    def __init__(self, base_url: str, username: str, bearer_token: str, session: aiohttp.ClientSession):
+
+    def __init__(self, base_url: str, username: str, api_key: str, session: aiohttp.ClientSession):
         self.base_url = base_url.rstrip('/')
         self.username = username
-        self.bearer_token = bearer_token
+        self.api_key = api_key
         self.session = session
-        self._headers = {"Authorization": f"Bearer {bearer_token}"} if bearer_token else {}
+        self._headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
     
     async def test_connection(self) -> bool:
         """Test connection to Tronbyt server."""
         try:
             async with self.session.get(
-                f"{self.base_url}/v0/users/{self.username}/devices",
+                f"{self.base_url}/v0/devices",
                 headers=self._headers,
                 timeout=aiohttp.ClientTimeout(total=10)
             ) as response:
@@ -53,7 +52,7 @@ class TronbytAPI:
         """Get list of all devices from Tronbyt server."""
         try:
             async with self.session.get(
-                f"{self.base_url}/v0/users/{self.username}/devices",
+                f"{self.base_url}/v0/devices",
                 headers=self._headers,
                 timeout=aiohttp.ClientTimeout(total=10)
             ) as response:
@@ -108,9 +107,9 @@ class TronbytAPI:
     async def get_device_status(self, device_id: str) -> Dict[str, Any]:
         """Get device status information."""
         try:
-            # Get updated device info from devices endpoint
+            # Always get updated device info from the user devices endpoint
             async with self.session.get(
-                f"{self.base_url}/v0/users/{self.username}/devices",
+                f"{self.base_url}/v0/devices",
                 headers=self._headers,
                 timeout=aiohttp.ClientTimeout(total=10)
             ) as response:
@@ -123,8 +122,8 @@ class TronbytAPI:
                         if device["id"] == device_id:
                             return {
                                 "online": True,
-                                "status": "connected",
-                                "brightness": device.get("brightness", 50),
+                                "status": "connected", 
+                                "brightness": device.get("brightness", 50),  # This is 0-255 from API
                                 "auto_dim": device.get("autoDim", False),
                                 "current_app": await self._get_current_app(device_id),
                             }
@@ -140,19 +139,17 @@ class TronbytAPI:
     async def _get_current_app(self, device_id: str) -> Optional[str]:
         """Get currently running app information."""
         try:
-            # Try to get current app from device-specific endpoint
             async with self.session.get(
-                f"{self.base_url}/v0/users/{self.username}/devices/{device_id}/installations",
+                f"{self.base_url}/v0/devices/{device_id}/installations",
                 headers=self._headers,
                 timeout=aiohttp.ClientTimeout(total=5)
             ) as response:
                 if response.status == 200:
                     data = await response.json()
-                    # Look for active app in installations
                     installations = data.get("installations", [])
-                    for installation in installations:
-                        if installation.get("active", False):
-                            return installation.get("appId", "Unknown")
+                    if installations:
+                        # Return the first installation's appID
+                        return installations[0].get("appID", "Unknown")
         except Exception:
             pass
         
@@ -168,17 +165,38 @@ class TronbytAPI:
         except Exception as e:
             _LOGGER.error(f"Error setting power state for {device_id}: {e}")
             return False
-    
+
     async def set_device_brightness(self, device_id: str, brightness: int) -> bool:
-        """Set device brightness (0-100)."""
+        """Set device brightness (0-255)."""
         try:
+            headers = self._headers
+            url = f"{self.base_url}/v0/devices/{device_id}"
+            
+            # API expects brightness 0-255, not 0-100
+            payload = {"brightness": brightness}
+            
+            _LOGGER.debug(f"Setting brightness for {device_id} to {brightness}")
+            _LOGGER.debug(f"URL: {url}")
+            _LOGGER.debug(f"Payload: {payload}")
+            
             async with self.session.patch(
-                f"{self.base_url}/v0/users/{self.username}/devices/{device_id}",
-                json={"brightness": brightness},
-                headers=self._headers,
+                url,
+                json=payload,
+                headers=headers,
                 timeout=aiohttp.ClientTimeout(total=10)
             ) as response:
-                return response.status in [200, 204]
+                response_text = await response.text()
+                _LOGGER.debug(f"Response status: {response.status}")
+                _LOGGER.debug(f"Response headers: {dict(response.headers)}")
+                _LOGGER.debug(f"Response body: {response_text}")
+                
+                if response.status in [200, 204]:
+                    _LOGGER.info(f"Successfully set brightness for {device_id} to {brightness}")
+                    return True
+                else:
+                    _LOGGER.error(f"Failed to set brightness for {device_id}: HTTP {response.status} - {response_text}")
+                    return False
+                    
         except Exception as e:
             _LOGGER.error(f"Error setting brightness for {device_id}: {e}")
             return False
@@ -189,7 +207,7 @@ class TronbytAPI:
             if device_id:
                 # Get installed apps for specific device
                 async with self.session.get(
-                    f"{self.base_url}/v0/users/{self.username}/devices/{device_id}/installations",
+                    f"{self.base_url}/v0/devices/{device_id}/installations",
                     headers=self._headers,
                     timeout=aiohttp.ClientTimeout(total=10)
                 ) as response:
@@ -213,10 +231,10 @@ class TronbytAPI:
     async def set_device_app(self, device_id: str, app_id: str) -> bool:
         """Set active app for device."""
         try:
-            # This would likely involve installing/activating an app
-            # The exact endpoint would need to be confirmed from API docs
+            url = f"{self.base_url}/v0/devices/{device_id}/installations"
+            
             async with self.session.post(
-                f"{self.base_url}/v0/users/{self.username}/devices/{device_id}/installations",
+                url,
                 json={"appId": app_id},
                 headers=self._headers,
                 timeout=aiohttp.ClientTimeout(total=10)
@@ -259,21 +277,27 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Tronbyt from a config entry."""
     base_url = entry.data[CONF_BASE_URL]
     username = entry.data[CONF_USERNAME]
-    bearer_token = entry.data[CONF_BEARER_TOKEN]
+    api_key = entry.data[CONF_API_KEY]
     
     session = async_get_clientsession(hass)
-    api = TronbytAPI(base_url, username, bearer_token, session)
+    api = TronbytAPI(base_url, username, api_key, session)
     
     # Test connection
     if not await api.test_connection():
         _LOGGER.error("Failed to connect to Tronbyt server")
         return False
     
-    # Get devices
-    devices = await api.get_devices()
-    if not devices:
-        _LOGGER.error("No devices found on Tronbyt server")
-        return False
+    # Get devices from config entry (with API keys) or fetch fresh if not available
+    stored_devices = entry.data.get("devices")
+    if stored_devices:
+        devices = stored_devices
+        _LOGGER.info(f"Using stored devices with API keys: {len(devices)} devices")
+    else:
+        # Fallback: fetch devices if not stored in config (for older config entries)
+        devices = await api.get_devices()
+        if not devices:
+            _LOGGER.error("No devices found on Tronbyt server")
+            return False
     
     # Create coordinators for each device
     coordinators = {}
@@ -296,7 +320,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     
     # Register services
-    await async_setup_services(hass, api)
+    await async_setup_services(hass, entry.entry_id)
     
     return True
 
@@ -316,7 +340,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return unload_ok
 
 
-async def async_setup_services(hass: HomeAssistant, api: TronbytAPI):
+async def async_setup_services(hass: HomeAssistant, entry_id: str):
     """Set up services for Tronbyt integration."""
     
     async def handle_set_brightness(call):
@@ -327,6 +351,10 @@ async def async_setup_services(hass: HomeAssistant, api: TronbytAPI):
         # Extract device ID from entity ID
         if entity_id and entity_id.startswith("light.tronbyt_"):
             device_id = entity_id.replace("light.tronbyt_", "").replace("_light", "")
+            
+            # Get API and device info from the entry data
+            entry_data = hass.data[DOMAIN][entry_id]
+            api = entry_data["api"]
             await api.set_device_brightness(device_id, brightness)
     
     async def handle_set_app(call):
@@ -337,6 +365,10 @@ async def async_setup_services(hass: HomeAssistant, api: TronbytAPI):
         # Extract device ID from entity ID
         if entity_id and entity_id.startswith("light.tronbyt_") and app_id:
             device_id = entity_id.replace("light.tronbyt_", "").replace("_light", "")
+            
+            # Get API and device info from the entry data
+            entry_data = hass.data[DOMAIN][entry_id]
+            api = entry_data["api"]
             await api.set_device_app(device_id, app_id)
     
     # Only register services if they don't exist yet

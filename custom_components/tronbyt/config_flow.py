@@ -10,14 +10,14 @@ from homeassistant.data_entry_flow import FlowResult
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .const import CONF_BASE_URL, CONF_BEARER_TOKEN, CONF_USERNAME, DOMAIN
+from .const import CONF_API_KEY, CONF_BASE_URL, CONF_USERNAME, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
 STEP_USER_DATA_SCHEMA = vol.Schema({
     vol.Required(CONF_BASE_URL): str,
-    vol.Optional(CONF_USERNAME, default="admin"): str,
-    vol.Optional(CONF_BEARER_TOKEN, default="bearer_token"): str,
+    vol.Required(CONF_USERNAME, default="admin"): str,
+    vol.Required(CONF_API_KEY, default="get from tronbyt UI user edit page"): str,
 })
 
 
@@ -44,16 +44,16 @@ class TronbytConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 # Validate and normalize the base URL
                 base_url = self._normalize_url(user_input[CONF_BASE_URL])
                 username = user_input[CONF_USERNAME]
-                bearer_token = user_input[CONF_BEARER_TOKEN]
+                api_key = user_input[CONF_API_KEY]
 
                 # Test connection and get devices
-                devices = await self._test_connection(base_url, username, bearer_token)
-                
+                devices = await self._test_connection(base_url, username, api_key)
+
                 if devices:
                     # Store the connection info
                     self.base_url = base_url
                     self.username = username
-                    self.bearer_token = bearer_token
+                    self.api_key = api_key
                     self.devices = devices
                     
                     # Check if already configured
@@ -78,7 +78,7 @@ class TronbytConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=STEP_USER_DATA_SCHEMA,
             errors=errors,
             description_placeholders={
-                "example_url": "https://tronbyt.gxlabs.co or http://192.168.1.100:8000"
+                "example_url": "https://tronbyt.example.com or http://192.168.1.100:8000"
             }
         )
 
@@ -87,14 +87,17 @@ class TronbytConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     ) -> FlowResult:
         """Show devices found and allow user to proceed."""
         if user_input is not None:
-            # Create the config entry
+            # Create the config entry with devices and their API keys
+            config_data = {
+                CONF_BASE_URL: self.base_url,
+                CONF_USERNAME: self.username,
+                CONF_API_KEY: self.api_key,
+                "devices": self.devices,  # Store the full device data
+            }
+            
             return self.async_create_entry(
                 title=f"Tronbyt Server ({self.base_url})",
-                data={
-                    CONF_BASE_URL: self.base_url,
-                    CONF_USERNAME: self.username,
-                    CONF_BEARER_TOKEN: self.bearer_token,
-                },
+                data=config_data,
             )
 
         # Create device list for display
@@ -129,15 +132,15 @@ class TronbytConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         
         return url
 
-    async def _test_connection(self, base_url: str, username: str, bearer_token: str) -> list:
+    async def _test_connection(self, base_url: str, username: str, api_key: str) -> list:
         """Test if we can authenticate with the server."""
         session = async_get_clientsession(self.hass)
         
         try:
-            headers = {"Authorization": f"Bearer {bearer_token}"} if bearer_token else {}
+            headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
             
             async with session.get(
-                f"{base_url}/v0/users/{username}/devices",
+                f"{base_url}/v0/devices",
                 headers=headers,
                 timeout=aiohttp.ClientTimeout(total=10)
             ) as response:
@@ -148,7 +151,7 @@ class TronbytConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 
                 data = await response.json()
                 devices = data.get("devices", [])
-                
+
                 # Transform devices to our format
                 transformed_devices = []
                 for device in devices:
